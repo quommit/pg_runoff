@@ -1,0 +1,25 @@
+version: '3'
+services:
+  pg_runoff:
+    build:
+      context: .
+      args:
+        - BASE=$BASE
+        - SCHEMA=$SCHEMA
+    image: siose-innova/preinstalled-pg_runoff:$VERSION-$SUBTAG
+    container_name: pg_runoff_host
+    networks:
+      - ext_packaging
+
+  ext-creator:
+    image: wildbeeq/ext-creator:10
+    environment:
+      - HOST=pg_runoff_host
+      - DB=$DB
+      - USER=postgres
+      - EXTNAME=pg_runoff
+    networks:
+      - ext_packaging
+
+networks:
+  ext_packaging:
