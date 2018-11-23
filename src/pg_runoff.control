@@ -1,0 +1,6 @@
+# pg_runoff extension
+comment = 'Rainfall-runoff data analysis for SIOSE databases'
+default_version = 0.1
+requires = postgis
+relocatable = false
+schema = runoff
