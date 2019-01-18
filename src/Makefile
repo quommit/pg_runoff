@@ -1,8 +1,11 @@
 EXTENSION = pg_runoff
-DATA = pg_runoff--0.1.sql
-TEMPLATE = $(DATA).template
+VERSION = 0.1
+SQL_SCHEMAFILE = pg_runoff--$(VERSION).sql
+SQL_SCHEMATEMPLATE = $(SQL_SCHEMAFILE).template
+SQL_COPYFILE = data.sql
+DATA = $(SQL_SCHEMAFILE) $(SQL_COPYFILE)
 
-$(DATA) : $(TEMPLATE)
+$(SQL_SCHEMAFILE) : $(SQL_SCHEMATEMPLATE)
 	sed "s/\$$SIOSE_SCHEMA/$(SIOSE_SCHEMA)/g" $< > $@
 
 PG_CONFIG = pg_config
