@@ -1,0 +1,24 @@
+-- Echo and exit if script is sourced in psql rather than using CREATE EXTENSION
+\echo Use "CREATE EXTENSION pg_runoff" to load this file. \quit
+
+SET LOCAL search_path TO @extschema@, $SIOSE_SCHEMA, public;
+
+CREATE TABLE @extschema@.cfg (
+  cover_id smallint PRIMARY KEY,
+  clc_key integer,
+  mopu_key smallint,
+  n float);
+
+COMMENT ON TABLE @extschema@.cfg IS 'Mappings between SIOSE cover identifiers, CORINE Land Cover classes, MOPU classes and Manning values';
+
+CREATE TABLE @extschema@.clc_dictionary (
+  clc_key integer,
+  clc_desc text);
+
+COMMENT ON TABLE @extschema@.clc_dictionary IS 'Look-up table for CORINE Land Cover classes';
+
+CREATE TABLE @extschema@.mopu_dictionary (
+  mopu_key integer,
+  mopu_desc text);
+
+COMMENT ON TABLE @extschema@.mopu_dictionary IS 'Look-up table for MOPU classes';
