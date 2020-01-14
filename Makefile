@@ -39,18 +39,18 @@ VERSION = 0.1
 # [SIOSE_AREA_EXTENT]_[YYYY].
 # Valid values for the term [SIOSE_AREA_EXTENT]
 # Geohash strings and administrative boundary codes.
-SUBTAG = 1003_2005
+SUBTAG = 1003_2014
 
 # BASE Docker image.
 # This must be a SIOSE database instance compliant
 # with the MF2 data model. Database instances may
 # cover the whole or part of SIOSE's extension.
-BASE = siose-innova/mf2-1003:2005
+BASE = siose-innova/mf2-1003:2014
 
 # DB name.
 # This is the name of the target SIOSE database
 # within BASE image.
-DB = siose2005
+DB = siose2014
 
 # SCHEMA name.
 # This is the name of the target schema in DB.
