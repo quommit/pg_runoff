@@ -1,5 +1,5 @@
 ARG BASE
-FROM siose-innova/gdal:2.2.4 AS etl
+FROM siose-innova/gdal:3.0.2 AS etl
 COPY ./src /usr/src/pg_runoff
 ARG CS="CREATE_SCHEMA=OFF"
 ARG CT="CREATE_TABLE=OFF"
