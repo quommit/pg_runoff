@@ -12,7 +12,7 @@ services:
       - ext_packaging
 
   ext-creator:
-    image: siose-innova/ext-creator:10
+    image: siose-innova/ext-creator:11.6
     environment:
       - HOST=pg_runoff_host
       - DB=$DB
