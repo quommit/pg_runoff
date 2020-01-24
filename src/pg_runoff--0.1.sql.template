@@ -3,22 +3,23 @@
 
 SET LOCAL search_path TO @extschema@, $SIOSE_SCHEMA, public;
 
-CREATE TABLE @extschema@.cfg (
-  cover_id smallint PRIMARY KEY,
-  clc_key integer,
-  mopu_key smallint,
-  n float);
+CREATE TABLE @extschema@.hydro2siose (
+  siose smallint PRIMARY KEY,
+  icn52 smallint NOT NULL);
 
-COMMENT ON TABLE @extschema@.cfg IS 'Mappings between SIOSE cover identifiers, CORINE Land Cover classes, MOPU classes and Manning values';
+COMMENT ON TABLE @extschema@.cfg IS 'Mappings between hydrological beahaviour identifiers from IC Norm 5.2 and SIOSE cover identifiers';
 
-CREATE TABLE @extschema@.clc_dictionary (
-  clc_key integer,
-  clc_desc text);
+CREATE TABLE @extschema@.manning (
+  siose smallint PRIMARY KEY,
+  n float NOT NULL);
 
-COMMENT ON TABLE @extschema@.clc_dictionary IS 'Look-up table for CORINE Land Cover classes';
+COMMENT ON TABLE @extschema@.manning IS 'Manning roughness coefficient assignments to SIOSE cover identifiers';
 
-CREATE TABLE @extschema@.mopu_dictionary (
-  mopu_key integer,
-  mopu_desc text);
+CREATE TABLE @extschema@.p0 (
+  icn52 smallint,
+  slope_mod smallint,
+  soil_mod smallint,
+  p0 float NOT NULL,
+  PRIMARY KEY (icn52, slope_mod, soil_mod);
 
-COMMENT ON TABLE @extschema@.mopu_dictionary IS 'Look-up table for MOPU classes';
+COMMENT ON TABLE @extschema@.p0 IS 'Threshold runoff coefficient assignments to (hydrological behaviour + slope modifier + soil modifier) triplets';
