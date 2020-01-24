@@ -54,7 +54,7 @@ DB = siose2014
 
 # SCHEMA name.
 # This is the name of the target schema in DB.
-SCHEMA = s2005
+SCHEMA = s2014
 
 $(COMPOSE) : $(TEMPLATE)
 	sed -e "s/\$$VERSION/$(VERSION)/g" \
