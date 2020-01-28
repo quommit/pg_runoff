@@ -7,7 +7,7 @@ CREATE TABLE @extschema@.hydro2siose (
   siose smallint PRIMARY KEY,
   icn52 smallint NOT NULL);
 
-COMMENT ON TABLE @extschema@.cfg IS 'Mappings between hydrological beahaviour identifiers from IC Norm 5.2 and SIOSE cover identifiers';
+COMMENT ON TABLE @extschema@.hydro2siose IS 'Mappings between hydrological behaviour identifiers from IC Norm 5.2 and SIOSE cover identifiers';
 
 CREATE TABLE @extschema@.manning (
   siose smallint PRIMARY KEY,
@@ -20,6 +20,6 @@ CREATE TABLE @extschema@.p0 (
   slope_mod smallint,
   soil_mod smallint,
   p0 float NOT NULL,
-  PRIMARY KEY (icn52, slope_mod, soil_mod);
+  PRIMARY KEY (icn52, slope_mod, soil_mod));
 
 COMMENT ON TABLE @extschema@.p0 IS 'Threshold runoff coefficient assignments to (hydrological behaviour + slope modifier + soil modifier) triplets';
