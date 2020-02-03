@@ -4,7 +4,9 @@ services:
     build:
       context: .
       args:
+        - VERSION=$VERSION
         - BASE=$BASE
+        - DB=$DB
         - SCHEMA=$SCHEMA
     image: siose-innova/preinstalled-pg_runoff:$VERSION-$SUBTAG
     container_name: pg_runoff_host
