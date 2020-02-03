@@ -4,8 +4,8 @@
 SET LOCAL search_path TO @extschema@, $SIOSE_SCHEMA, public;
 
 CREATE TABLE @extschema@.hydro2siose (
-  siose smallint PRIMARY KEY,
-  icn52 smallint NOT NULL);
+  icn52 smallint NOT NULL,
+  siose smallint PRIMARY KEY);
 
 COMMENT ON TABLE @extschema@.hydro2siose IS 'Mappings between hydrological behaviour identifiers from IC Norm 5.2 and SIOSE cover identifiers';
 
