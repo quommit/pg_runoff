@@ -56,12 +56,18 @@ DB = siose2014
 # This is the name of the target schema in DB.
 SCHEMA = s2014
 
+# eXtensioN SCHEMA name
+# This is the name of the schema which pg_runoff 
+# extension objects are located in
+XNSCHEMA = runoff
+
 $(COMPOSE) : $(TEMPLATE)
 	sed -e "s/\$$VERSION/$(VERSION)/g" \
             -e "s/\$$SUBTAG/$(SUBTAG)/g" \
             -e "s/\$$BASE/$(subst /,\/,$(BASE))/g" \
             -e "s/\$$DB/$(DB)/g" \
-            -e "s/\$$SCHEMA/$(SCHEMA)/g" $< > $@
+            -e "s/\$$SCHEMA/$(SCHEMA)/g" \
+            -e "s/\$$XNSCHEMA/$(XNSCHEMA)/g" $< > $@
 
 .PHONY: install clean
 

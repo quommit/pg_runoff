@@ -41,15 +41,35 @@ RUN set -ex \
     && sed -i -e '/^BEGIN/d' -e '/^COMMIT/d' p0.sql \
     && cat hydro2siose.sql manning.sql p0.sql >> pg_runoff--${EXTENSION_VERSION}.sql.template
 
+FROM golang:1.12.14-alpine3.9 AS builder
+
+COPY ./go/src /go/src
+RUN set -ex \
+    \
+    && apk add --no-cache \
+        gcc \
+        libc-dev \
+    && cd /go/src/runoff \
+    && GOOS=linux GARCH=amd64 go build \
+        -ldflags "-linkmode external -extldflags -static" \
+        -installsuffix cgo \
+        -o runoff \
+        -a \
+        main.go
 
 FROM $BASE
 
+ARG VERSION
+ENV EXTENSION_VERSION=$VERSION
 ARG DB
 ENV SIOSE_DB=$DB
 ARG SCHEMA
 ENV SIOSE_SCHEMA=$SCHEMA
+ARG XNSCHEMA
+ENV RUNOFF_SCHEMA=$XNSCHEMA
 
 COPY --from=etl /usr/src/pg_runoff /usr/src/pg_runoff/.
+COPY --from=builder /go/src/runoff/runoff /usr/local/bin/.
 RUN set -ex \
     \
     && apk add --no-cache --virtual .build-deps \
@@ -59,4 +79,7 @@ RUN set -ex \
     && make install \
     && cd / \
     && rm -rf /usr/src/pg_runoff \
-    && apk del .build-deps
+    && apk del .build-deps \
+    && mkdir /data
+
+VOLUME ["/data"]

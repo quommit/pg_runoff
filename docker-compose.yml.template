@@ -8,8 +8,11 @@ services:
         - BASE=$BASE
         - DB=$DB
         - SCHEMA=$SCHEMA
+        - XNSCHEMA=$XNSCHEMA
     image: siose-innova/preinstalled-pg_runoff:$VERSION-$SUBTAG
     container_name: pg_runoff_host
+    volumes:
+      - ./src:/data
     networks:
       - ext_packaging
 

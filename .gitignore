@@ -1,2 +1,8 @@
 *~
 docker-compose.yml
+go/bin
+go/src/github.com
+go/src/golang.org
+go/src/gopkg.in
+go/src/runoff/runoff
+src/shp
