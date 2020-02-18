@@ -17,9 +17,33 @@ COMMENT ON TABLE @extschema@.manning IS 'Manning roughness coefficient assignmen
 
 CREATE TABLE @extschema@.p0 (
   icn52 smallint,
-  slope_mod smallint,
-  soil_mod smallint,
+  slope_mod smallint CHECK (slope_mod = ANY (ARRAY[-3, 3])),
+  soil_mod smallint CHECK (soil_mod = ANY (ARRAY[-2, -1, 0, 1])),
   p0 float NOT NULL,
   PRIMARY KEY (icn52, slope_mod, soil_mod));
 
 COMMENT ON TABLE @extschema@.p0 IS 'Threshold runoff coefficient assignments to (hydrological behaviour + slope modifier + soil modifier) triplets';
+
+CREATE TABLE @extschema@.basin (
+  id serial PRIMARY KEY,
+  geom geometry(MultiPolygon, 4258));
+
+COMMENT ON TABLE @extschema@.basin IS 'Drainage basin polygon';
+
+CREATE TABLE @extschema@.slope (
+  id serial PRIMARY KEY,
+  slope_mod smallint CHECK (slope_mod = ANY (ARRAY[-3, 3])),
+  geom geometry(MultiPolygon, 4258));
+
+CREATE INDEX ON @extschema@.slope USING GIST (geom);
+
+COMMENT ON TABLE @extschema@.slope IS 'Slope polygons';
+
+CREATE TABLE @extschema@.soil (
+  id serial PRIMARY KEY,
+  soil_mod smallint CHECK (soil_mod = ANY (ARRAY[-2, -1, 0, 1])),
+  geom geometry(MultiPolygon, 4258));
+
+CREATE INDEX ON @extschema@.soil USING GIST (geom);
+
+COMMENT ON TABLE @extschema@.soil IS 'Soil polygons';
