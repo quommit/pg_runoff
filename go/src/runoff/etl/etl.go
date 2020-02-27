@@ -17,13 +17,10 @@ along with this program. If not, see <http://www.gnu.org/licenses/>.
 package etl
 
 import (
-  "bytes"
   "fmt"
-  "os"
-  "os/exec"
   "path/filepath"
+  "runoff/spawn"
   "strings"
-  "syscall"
 )
 
 const RAW_BASIN string = "basin_input"
@@ -38,26 +35,6 @@ const MODEL_SOIL_COL string = "soil_mod"
 
 func getBaseNoExt(filename string) string {
   return strings.TrimSuffix(filepath.Base(filename), filepath.Ext(filename))
-}
-
-func procExec(args []string) error {
-  fmt.Printf("%v\n", args)
-  var stdout, stderr bytes.Buffer
-  proc := exec.Command(args[0], args[1:]...)
-  proc.Env = os.Environ()
-  // Safeguard for exec.Command clean exit
-  // For more info check: https://medium.com/@ganeshmaharaj/clean-exit-of-golangs-exec-command-897832ac3fa5
-  proc.SysProcAttr = &syscall.SysProcAttr{
-    Pdeathsig: syscall.SIGTERM,
-  }
-  proc.Stdout = &stdout
-  proc.Stderr = &stderr
-  if err := proc.Run(); err != nil {
-    fmt.Println(stderr.String())
-    return err
-  }
-  fmt.Println(stdout.String())
-  return nil
 }
 
 type ShpReader interface {
@@ -82,7 +59,7 @@ func ogrinfo(filename string) error {
   layername := getBaseNoExt(filename)
   proc := fmt.Sprintf(ogrinfo_cmd, filename, layername)
   args := strings.Split(proc, ";;")
-  if err := procExec(args); err != nil {
+  if err := spawn.ProcExec(args); err != nil {
     return err
   }
   return nil
@@ -164,7 +141,7 @@ func ogr2ogr(filename string, db *SIOSE, targettable string) error {
   cnstr := fmt.Sprintf(ogrcnstr, db.name)
   proc := fmt.Sprintf(ogr2ogr_cmd, cnstr, db.schema, targettable, filename, layername)
   args := strings.Split(proc, ";;")
-  if err := procExec(args); err != nil {
+  if err := spawn.ProcExec(args); err != nil {
     return err
   }
   return nil
@@ -200,7 +177,7 @@ func feedModel(db *SIOSE, sourcetable string, sourcefield string, targettable st
   }
   proc := fmt.Sprintf(psql_cmd, db.name, sqltruncate, sqlinsert)
   args := strings.Split(proc, ";;")
-  if err := procExec(args); err != nil {
+  if err := spawn.ProcExec(args); err != nil {
     return err
   }
   return nil
