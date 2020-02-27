@@ -47,3 +47,92 @@ CREATE TABLE @extschema@.soil (
 CREATE INDEX ON @extschema@.soil USING GIST (geom);
 
 COMMENT ON TABLE @extschema@.soil IS 'Soil polygons';
+
+CREATE materialized VIEW IF NOT EXISTS @extschema@.slope_crop (id, geom, slope_mod) AS
+WITH
+slope_boxed (id, geom, slope_mod) AS (
+  SELECT a.id, a.geom, a.slope_mod
+   FROM @extschema@.slope a, @extschema@.basin b
+   WHERE a.geom && b.geom),
+slope_inner (id, geom, slope_mod) AS (
+  SELECT a.id, a.geom, a.slope_mod
+   FROM slope_boxed a, @extschema@.basin b
+   WHERE st_containsproperly(b.geom, a.geom)),
+slope_outer (id, geom, slope_mod) AS (
+  SELECT * FROM slope_boxed
+  EXCEPT
+  SELECT * FROM slope_inner),
+slope_boundary (id, geom, slope_mod) AS (
+  SELECT a.id, st_multi(st_intersection(a.geom, b.geom)), slope_mod
+   FROM slope_outer a, @extschema@.basin b
+   WHERE st_relate(a.geom, b.geom, '2********'))
+SELECT * FROM slope_inner
+UNION
+SELECT * FROM slope_boundary
+WITH NO DATA;
+
+CREATE UNIQUE index ON @extschema@.slope_crop (id);
+CREATE index ON @extschema@.slope_crop USING gist (geom);
+
+CREATE materialized VIEW IF NOT EXISTS @extschema@.soil_crop (id, geom, soil_mod) AS
+SELECT a.id, st_multi(st_intersection(a.geom, b.geom)), soil_mod
+  FROM @extschema@.soil a, @extschema@.basin b
+  WHERE a.geom && b.geom
+  AND st_relate(a.geom, b.geom, '2********')
+WITH NO DATA;
+
+CREATE UNIQUE index ON @extschema@.soil_crop (id);
+CREATE index ON @extschema@.soil_crop USING gist (geom);
+
+CREATE materialized VIEW IF NOT EXISTS @extschema@.link (id, geom, siose_polygon, slope_mod, soil_mod) AS
+WITH
+siose_boxed (siose_polygon, geom) AS (
+  SELECT a.id_polygon, a.geom
+  FROM t_poli_geo a JOIN @extschema@.basin b
+  ON a.geom && b.geom),
+slope_inner (id, geom, siose_polygon, slope_mod) AS (
+  SELECT a.id, a.geom, b.siose_polygon, a.slope_mod
+  FROM @extschema@.slope_crop a JOIN siose_boxed b
+  ON st_containsproperly(b.geom, a.geom)),
+slope_outer (id, geom, slope_mod) AS (
+  SELECT * FROM @extschema@.slope_crop
+  EXCEPT
+  SELECT id, geom, slope_mod FROM slope_inner),
+slope_boundary (geom, siose_polygon, slope_mod) AS (
+  SELECT st_multi(st_intersection(a.geom, b.geom)), b.siose_polygon, a.slope_mod
+  FROM slope_outer a JOIN siose_boxed b
+  ON a.geom && b.geom
+  WHERE st_relate(a.geom, b.geom, '2********')),
+slope_overlay (geom, siose_polygon, slope_mod) AS (
+  SELECT geom, siose_polygon, slope_mod FROM slope_inner
+  UNION
+  SELECT geom, siose_polygon, slope_mod FROM slope_boundary),
+slope_inner_soil (geom, siose_polygon, slope_mod, soil_mod) AS (
+  SELECT a.geom, a.siose_polygon, a.slope_mod, b.soil_mod
+  FROM slope_overlay a JOIN @extschema@.soil_crop b
+  ON st_containsproperly(b.geom, a.geom)),
+slope_outer_soil (geom, siose_polygon, slope_mod) AS (
+  SELECT * FROM slope_overlay
+  EXCEPT
+  SELECT geom, siose_polygon, slope_mod FROM slope_inner_soil),
+slope_boundary_soil (geom, siose_polygon, slope_mod, soil_mod) AS (
+  SELECT st_multi(st_intersection(a.geom, b.geom)), a.siose_polygon, a.slope_mod, b.soil_mod
+  FROM slope_outer_soil a JOIN @extschema@.soil_crop b
+  ON a.geom && b.geom
+  WHERE st_relate(a.geom, b.geom, '2********')),
+slope_overlay_soil (geom, siose_polygon, slope_mod, soil_mod) AS (
+  SELECT geom, siose_polygon, slope_mod, soil_mod FROM slope_inner_soil
+  UNION
+  SELECT geom, siose_polygon, slope_mod, soil_mod FROM slope_boundary_soil)
+
+SELECT row_number() over (), * FROM slope_overlay_soil
+WITH NO DATA;
+
+CREATE UNIQUE index ON @extschema@.link (id);
+CREATE index ON @extschema@.link USING gist (geom);
+
+
+-- Load EMACS sql mode
+-- Local Variables:
+-- mode: sql
+-- End:
