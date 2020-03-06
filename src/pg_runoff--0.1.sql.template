@@ -48,7 +48,7 @@ CREATE INDEX ON @extschema@.soil USING GIST (geom);
 
 COMMENT ON TABLE @extschema@.soil IS 'Soil polygons';
 
-CREATE materialized VIEW IF NOT EXISTS @extschema@.slope_crop (id, geom, slope_mod) AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS @extschema@.slope_crop (id, geom, slope_mod) AS
 WITH
 slope_boxed (id, geom, slope_mod) AS (
   SELECT a.id, a.geom, a.slope_mod
@@ -71,20 +71,20 @@ UNION
 SELECT * FROM slope_boundary
 WITH NO DATA;
 
-CREATE UNIQUE index ON @extschema@.slope_crop (id);
-CREATE index ON @extschema@.slope_crop USING gist (geom);
+CREATE UNIQUE INDEX ON @extschema@.slope_crop (id);
+CREATE INDEX ON @extschema@.slope_crop USING gist (geom);
 
-CREATE materialized VIEW IF NOT EXISTS @extschema@.soil_crop (id, geom, soil_mod) AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS @extschema@.soil_crop (id, geom, soil_mod) AS
 SELECT a.id, st_multi(st_intersection(a.geom, b.geom)), soil_mod
   FROM @extschema@.soil a, @extschema@.basin b
   WHERE a.geom && b.geom
   AND st_relate(a.geom, b.geom, '2********')
 WITH NO DATA;
 
-CREATE UNIQUE index ON @extschema@.soil_crop (id);
-CREATE index ON @extschema@.soil_crop USING gist (geom);
+CREATE UNIQUE INDEX ON @extschema@.soil_crop (id);
+CREATE INDEX ON @extschema@.soil_crop USING gist (geom);
 
-CREATE materialized VIEW IF NOT EXISTS @extschema@.link (id, geom, siose_polygon, slope_mod, soil_mod) AS
+CREATE MATERIALIZED VIEW IF NOT EXISTS @extschema@.link (id, geom, siose_polygon, slope_mod, soil_mod) AS
 WITH
 siose_boxed (siose_polygon, geom) AS (
   SELECT a.id_polygon, a.geom
@@ -124,12 +124,53 @@ slope_overlay_soil (geom, siose_polygon, slope_mod, soil_mod) AS (
   SELECT geom, siose_polygon, slope_mod, soil_mod FROM slope_inner_soil
   UNION
   SELECT geom, siose_polygon, slope_mod, soil_mod FROM slope_boundary_soil)
-
 SELECT row_number() over (), * FROM slope_overlay_soil
 WITH NO DATA;
 
-CREATE UNIQUE index ON @extschema@.link (id);
-CREATE index ON @extschema@.link USING gist (geom);
+CREATE UNIQUE INDEX ON @extschema@.link (id);
+CREATE INDEX ON @extschema@.link USING gist (geom);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS @extschema@.cover_leaf_nodes (id, siose_polygon, cover_id, weight) AS
+WITH
+siose_boxed (siose_polygon) AS (
+  SELECT a.id_polygon
+  FROM t_poli_geo a JOIN @extschema@.basin b
+  ON a.geom && b.geom),
+siose_cover (siose_polygon, cover_id, node_number, node_path, weight, covercount) AS (
+  SELECT a.id_polygon, a.id_coberturas, a.inter_id::smallint, string_to_array(a.inter_ancestros, ',')::smallint[], a.superf_por, count(id_coberturas) over (partition by id_polygon)
+  FROM t_valores a JOIN siose_boxed b
+  ON a.id_polygon = b.siose_polygon),
+siose_polygon_parent_node_list (siose_polygon, parent_nodes) AS (
+  SELECT siose_polygon, array_agg(DISTINCT node_no)
+  FROM siose_cover, unnest(node_path) AS node_no
+  GROUP BY 1),
+siose_leaf AS (
+  SELECT a.siose_polygon, a.cover_id, a.weight
+  FROM siose_cover a NATURAL JOIN siose_polygon_parent_node_list b
+  WHERE NOT array[a.node_number] && b.parent_nodes
+  UNION
+  SELECT siose_polygon, cover_id, weight
+  FROM siose_cover
+  WHERE covercount = 1)
+SELECT row_number() OVER (), *
+FROM siose_leaf
+WITH NO DATA;
+
+CREATE UNIQUE INDEX ON @extschema@.cover_leaf_nodes (id);
+CREATE INDEX ON @extschema@.cover_leaf_nodes (siose_polygon);
+CREATE INDEX ON @extschema@.cover_leaf_nodes (cover_id);
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS @extschema@.cover_allocation (id, runoff_area_id, runoff_area_m2, slope_mod, soil_mod, siose_polygon, siose_polygon_m2, cover_id, weight) AS 
+WITH
+runoff_area (runoff_area_id, runoff_area_m2, slope_mod, soil_mod, siose_polygon) AS (
+  SELECT row_number() OVER (), * FROM (
+    SELECT sum(st_area(geom::geography)), slope_mod, soil_mod, siose_polygon 
+    FROM runoff.link group by 2, 3, 4) t)
+SELECT row_number() OVER () ,a.*, sum(runoff_area_m2) OVER (PARTITION BY a.siose_polygon, b.cover_id), b.cover_id, b.weight
+FROM runoff_area a NATURAL JOIN runoff.cover_leaf_nodes b
+WITH NO DATA;
+
+CREATE UNIQUE INDEX ON @extschema@.cover_allocation (id);
 
 
 -- Load EMACS sql mode
