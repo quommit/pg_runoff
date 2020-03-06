@@ -25,6 +25,8 @@ import (
 const MODEL_SLOPE_CROP string = "slope_crop"
 const MODEL_SOIL_CROP string = "soil_crop"
 const MODEL_LINK = "link"
+const MODEL_C_LEAF_NODES = "cover_leaf_nodes"
+const MODEL_C_ALLOC = "cover_allocation"
 
 type Model struct {
   name, schema string
@@ -38,6 +40,7 @@ func NewModel(name string, schema string) *Model {
 type Builder interface {
   Crop() error
   Link() error
+  Alloc() error
 }
 
 func (db Model) Crop() error {
@@ -54,22 +57,26 @@ func (db Model) Link() error {
   return nil
 }
 
+func (db Model) Allocate() error {
+  if err := refreshCoverViews(&db); err != nil {
+    return err
+  }
+  return nil
+}
+
+var refresh_cmd = "REFRESH MATERIALIZED VIEW %v.%v"
+
 // psql_crop_cmd var stores the psql command line text with placeholders
-// needed to refresh the model's crop views, which means fetching
-// rows into the slope_crop and soil_crop materialized views.
-// Please note that the double semicolon ";;" is used as a
-// separator for eventually splitting the command line
+// needed to refresh the model's crop views, which means fetching rows
+// into the MODEL_SLOPE_CROP and MODEL_SOIL_CROP materialized
+// views. Please note that the double semicolon ";;" is used
+// as a separator for eventually splitting the command line
 // text into its constituent options and arguments.
 var psql_crop_cmd = "psql;;-d;;%v;;-U;;postgres;;-c;;%v;;-c;;%v;;-1"
 
-// crop_cmd var holds the SQL statement that fetches rows
-// either into the slope_crop or the soil_crop
-// materialized view.
-var crop_cmd = "REFRESH MATERIALIZED VIEW %v.%v"
-
 func refreshCropViews(db *Model) error {
-  sqlrefresh_slope_crop := fmt.Sprintf(crop_cmd, db.schema, MODEL_SLOPE_CROP)
-  sqlrefresh_soil_crop := fmt.Sprintf(crop_cmd, db.schema, MODEL_SOIL_CROP)
+  sqlrefresh_slope_crop := fmt.Sprintf(refresh_cmd, db.schema, MODEL_SLOPE_CROP)
+  sqlrefresh_soil_crop := fmt.Sprintf(refresh_cmd, db.schema, MODEL_SOIL_CROP)
   proc := fmt.Sprintf(psql_crop_cmd, db.name, sqlrefresh_slope_crop, sqlrefresh_soil_crop)
   args := strings.Split(proc, ";;")
   if err := spawn.ProcExec(args); err != nil {
@@ -84,13 +91,28 @@ func refreshCropViews(db *Model) error {
 // command line text into its constituent options and arguments.
 var psql_link_cmd = "psql;;-d;;%v;;-U;;postgres;;-c;;%v"
 
-// link_cmd var holds the SQL statement that fetches rows
-// into the link materialized view.
-var link_cmd = "REFRESH MATERIALIZED VIEW %v.%v"
-
 func refreshLinkView(db *Model) error {
-  sqlrefresh_link := fmt.Sprintf(link_cmd, db.schema, MODEL_LINK)
+  sqlrefresh_link := fmt.Sprintf(refresh_cmd, db.schema, MODEL_LINK)
   proc := fmt.Sprintf(psql_link_cmd, db.name, sqlrefresh_link)
+  args := strings.Split(proc, ";;")
+  if err := spawn.ProcExec(args); err != nil {
+    return err
+  }
+  return nil
+}
+
+// psql_allocate_cmd var stores the psql command line text with placeholders
+// needed to refresh the model's cover views, which means fetching
+// rows into the MODEL_C_LEAF_NODES and MODEL_C_ALLOC materialized
+// views. Please note that the double semicolon ";;" is used as a
+// separator for eventually splitting the command line text into
+// its constituent options and arguments.
+var psql_get_cmd = "psql;;-d;;%v;;-U;;postgres;;-c;;%v;;-c;;%v;;-1"
+
+func refreshCoverViews(db *Model) error {
+  sqlrefresh_cover_leaf_nodes := fmt.Sprintf(refresh_cmd, db.schema, MODEL_C_LEAF_NODES)
+  sqlrefresh_cover_allocation := fmt.Sprintf(refresh_cmd, db.schema, MODEL_C_ALLOC)
+  proc := fmt.Sprintf(psql_get_cmd, db.name, sqlrefresh_cover_leaf_nodes, sqlrefresh_cover_allocation)
   args := strings.Split(proc, ";;")
   if err := spawn.ProcExec(args); err != nil {
     return err
