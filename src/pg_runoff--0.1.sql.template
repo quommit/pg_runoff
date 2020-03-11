@@ -160,14 +160,43 @@ CREATE UNIQUE INDEX ON @extschema@.cover_leaf_nodes (id);
 CREATE INDEX ON @extschema@.cover_leaf_nodes (siose_polygon);
 CREATE INDEX ON @extschema@.cover_leaf_nodes (cover_id);
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS @extschema@.cover_allocation (id, runoff_area_id, runoff_area_m2, slope_mod, soil_mod, siose_polygon, siose_polygon_m2, cover_id, weight) AS 
+CREATE MATERIALIZED VIEW IF NOT EXISTS @extschema@.cover_allocation (id, runoff_area_id, runoff_area_m2, 
+                                                                     runoff_area_percent, 
+                                                                     slope_mod, soil_mod, siose_polygon, 
+                                                                     siose_polygon_m2, cover_id, weight) AS 
 WITH
 runoff_area (runoff_area_id, runoff_area_m2, slope_mod, soil_mod, siose_polygon) AS (
-  SELECT row_number() OVER (), * FROM (
+  SELECT row_number() OVER (), * 
+  FROM (
     SELECT sum(st_area(geom::geography)), slope_mod, soil_mod, siose_polygon 
-    FROM runoff.link group by 2, 3, 4) t)
-SELECT row_number() OVER () ,a.*, sum(runoff_area_m2) OVER (PARTITION BY a.siose_polygon, b.cover_id), b.cover_id, b.weight
-FROM runoff_area a NATURAL JOIN runoff.cover_leaf_nodes b
+    FROM runoff.link GROUP BY 2, 3, 4) t),
+runoff_percent (runoff_area_id, runoff_area_m2, runoff_area_percent, slope_mod, soil_mod, siose_polygon, siose_polygon_m2) AS (
+  SELECT runoff_area_id, runoff_area_m2, 
+         runoff_area_m2 * 100 / sum(runoff_area_m2) OVER (PARTITION BY siose_polygon), 
+         slope_mod, soil_mod, siose_polygon,
+         sum(runoff_area_m2) OVER (PARTITION BY siose_polygon)
+  FROM runoff_area),
+runoff_percent_cum (runoff_area_id, runoff_area_m2, runoff_area_percent, runoff_area_percent_cum, 
+                    slope_mod, soil_mod, siose_polygon, siose_polygon_m2) AS (
+  SELECT runoff_area_id, runoff_area_m2, runoff_area_percent,
+         round(sum(runoff_area_percent) OVER (PARTITION BY siose_polygon ORDER BY runoff_area_m2, runoff_area_id)), 
+         slope_mod, soil_mod, siose_polygon, siose_polygon_m2
+  FROM runoff_percent),
+runoff_percent_lag (runoff_area_id, runoff_area_m2, runoff_area_percent, runoff_area_percent_cum, lag,
+                    slope_mod, soil_mod, siose_polygon, siose_polygon_m2) AS (
+  SELECT runoff_area_id, runoff_area_m2, runoff_area_percent, runoff_area_percent_cum,
+         lag(runoff_area_percent_cum, 1, 0::float) OVER (PARTITION BY siose_polygon ORDER BY runoff_area_m2, runoff_area_id),
+         slope_mod, soil_mod, siose_polygon, siose_polygon_m2
+  FROM runoff_percent_cum),
+runoff_percent_int (runoff_area_id, runoff_area_m2, runoff_area_percent, runoff_area_percent_cum, lag, runoff_area_percent_int,
+                    slope_mod, soil_mod, siose_polygon, siose_polygon_m2) AS (
+  SELECT runoff_area_id, runoff_area_m2, runoff_area_percent, runoff_area_percent_cum, lag,
+         runoff_area_percent_cum - lag,
+         slope_mod, soil_mod, siose_polygon, siose_polygon_m2
+  FROM runoff_percent_lag)
+SELECT row_number() OVER () , a.runoff_area_id, a.runoff_area_m2, a.runoff_area_percent_int, a.slope_mod, a.soil_mod, 
+       a.siose_polygon, a.siose_polygon_m2, b.cover_id, b.weight
+FROM runoff_percent_int a NATURAL JOIN runoff.cover_leaf_nodes b
 WITH NO DATA;
 
 CREATE UNIQUE INDEX ON @extschema@.cover_allocation (id);
