@@ -201,6 +201,42 @@ WITH NO DATA;
 
 CREATE UNIQUE INDEX ON @extschema@.cover_allocation (id);
 
+CREATE materialized VIEW IF NOT EXISTS runoff.weighted_mean (basin_p0, siose_polygon, n, p0_dis_less,
+                                                             runoff_area_id, slope_mod, soil_mod, p0_dis_more) AS
+WITH
+shrink_weight (siose_polygon, siose_polygon_m2, runoff_area_id, runoff_area_percent, slope_mod, soil_mod, cover_id, weight) AS (
+  SELECT siose_polygon, siose_polygon_m2, runoff_area_id, runoff_area_percent, slope_mod, soil_mod, cover_id, sum(weight)
+  FROM runoff.cover_allocation
+  GROUP BY siose_polygon, siose_polygon_m2, runoff_area_id, runoff_area_percent, slope_mod, soil_mod, cover_id),
+map_n_p0 (siose_polygon, siose_polygon_m2, runoff_area_id, runoff_area_percent, slope_mod, soil_mod, cover_id, weight, n, p0) AS (
+  SELECT a.siose_polygon, a.siose_polygon_m2, a.runoff_area_id, a.runoff_area_percent, a.slope_mod, a.soil_mod, a.cover_id, a.weight, b.n, c.p0
+  FROM shrink_weight a JOIN runoff.manning b
+  ON a.cover_id = b.siose
+  JOIN (SELECT * FROM runoff.hydro2siose NATURAL JOIN runoff.p0) c
+  ON a.cover_id = c.siose AND
+  a.slope_mod = c.slope_mod AND
+  a.soil_mod = c.soil_mod),
+wmean_n (siose_polygon, n) AS (
+  SELECT siose_polygon,
+         sum(weight * n) / 100
+  FROM map_n_p0
+  GROUP BY siose_polygon),
+wmean_p0_dis (siose_polygon, siose_polygon_m2, p0_dis_less, runoff_area_id, slope_mod, soil_mod, p0_dis_more) AS (
+  SELECT siose_polygon, siose_polygon_m2,
+         sum(runoff_area_percent * sum(weight * p0) / 100) over (partition by siose_polygon) / 100,
+         runoff_area_id, slope_mod, soil_mod,
+         sum(weight * p0) / 100
+  FROM map_n_p0
+  WHERE runoff_area_percent > 0
+  GROUP BY siose_polygon, siose_polygon_m2, runoff_area_id, runoff_area_percent, slope_mod, soil_mod),
+basin_p0 (p0) AS (
+  SELECT sum(siose_polygon_m2 * p0_dis_less) / sum(siose_polygon_m2)
+  FROM wmean_p0_dis
+)
+SELECT round(a.p0::numeric, 3), b.siose_polygon, round(b.n::numeric, 3), round(c.p0_dis_less::numeric, 3),
+       c.runoff_area_id, c.slope_mod, c.soil_mod, round(c.p0_dis_more::numeric, 3)
+FROM basin_p0 a, wmean_n b NATURAL JOIN wmean_p0_dis c
+WITH NO DATA;
 
 -- Load EMACS sql mode
 -- Local Variables:
