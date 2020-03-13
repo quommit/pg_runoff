@@ -39,6 +39,16 @@ model computations.`,
               if allocateErr := m.Allocate(); allocateErr != nil {
                 fmt.Println("Command exited with error:", allocateErr)
               }
+	      fmt.Println("Computing p0 an n weighted mean values...")
+              if wmeanErr := m.ComputeWMean(); wmeanErr != nil {
+                fmt.Println("Command exited with error:", wmeanErr)
+              }
+	      p0, p0Err := m.GetP0()
+	      if p0Err != nil {
+	        fmt.Println("Command exited with error:", p0Err)
+	      } else {
+	        fmt.Println("Basin P0 = ", p0)
+	      }
 	},
 }
 

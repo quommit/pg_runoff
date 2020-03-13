@@ -24,7 +24,7 @@ import (
   "syscall"
 )
 
-func ProcExec(args []string) error {
+func procExec(args []string) (string, error) {
   fmt.Printf("%v\n", args)
   var stdout, stderr bytes.Buffer
   proc := exec.Command(args[0], args[1:]...)
@@ -38,8 +38,25 @@ func ProcExec(args []string) error {
   proc.Stderr = &stderr
   if err := proc.Run(); err != nil {
     fmt.Println(stderr.String())
+    return "", err
+  }
+  return stdout.String(), nil
+}
+
+func ProcExec(args []string) error {
+  r, err := procExec(args)
+  if err != nil {
     return err
   }
-  fmt.Println(stdout.String())
+  fmt.Println(r)
   return nil
 }
+
+func ProcGet(args []string) (string, error) {
+  r, err := procExec(args)
+  if err != nil {
+    return "", err
+  }
+  return r, nil
+}
+
